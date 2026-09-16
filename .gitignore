@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.pnpm-state*
+.pnp
+.pnp.js
+
+# Build outputs (rebuilt via `pnpm run build`; never commit)
+dist/
+server/dist/
+client/dist/
+shared/dist/
+*.tsbuildinfo
+
+# Lockfiles: pnpm is canonical for this repo
+package-lock.json
+yarn.lock
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime / cache
+.eslintcache
+*.pid
+*.seed
+*.pid.lock
+coverage/
+.nyc_output/
+.vite/
+vite.config.*.timestamp-*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+
+# Tool state (local only)
+.kilo/

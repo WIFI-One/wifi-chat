@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-chat-border;
+  }
+  
+  html {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply bg-chat-bg text-chat-text font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  ::selection {
+    @apply bg-white/20 text-white;
+  }
+  
+  ::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+  }
+  
+  ::-webkit-scrollbar-corner {
+    @apply bg-transparent;
+  }
+
+  /* No visible scrollbars anywhere (scrolling still works). */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-150 
+           outline-none
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn bg-white text-black hover:bg-neutral-300 active:bg-neutral-400;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-white/10 text-white hover:bg-neutral-700 active:bg-neutral-600;
+  }
+  
+  .btn-ghost {
+    @apply btn bg-transparent text-white hover:bg-neutral-800 active:bg-neutral-700;
+  }
+  
+  .btn-danger {
+    @apply btn bg-red-600/20 text-red-400 hover:bg-neutral-700 active:bg-neutral-600;
+  }
+  
+  .input {
+    @apply w-full px-4 py-2.5 bg-white/5 border border-white/10 
+           rounded-lg text-white placeholder:text-white/30
+           focus:outline-none focus:border-white/30 focus:bg-white/10
+           transition-all duration-150;
+  }
+  
+  .panel {
+    @apply bg-chat-panel border border-chat-border;
+  }
+  
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg 
+           text-white/80 hover:bg-neutral-800 hover:text-white 
+           transition-colors duration-150 cursor-pointer;
+  }
+  
+  .sidebar-item-active {
+    @apply bg-white/10 text-white;
+  }
+  
+  .message-bubble {
+    @apply w-fit max-w-full px-4 py-2 rounded-2xl;
+  }
+  
+  .message-own {
+    @apply message-bubble bg-white text-black rounded-tr-sm ml-auto;
+  }
+  
+  .message-other {
+    @apply message-bubble bg-white/10 text-white rounded-tl-sm;
+  }
+  
+  .avatar {
+    @apply w-10 h-10 rounded-full bg-white/10 flex items-center justify-center 
+           text-white font-medium overflow-hidden;
+  }
+  
+  .avatar-sm {
+    @apply w-8 h-8 text-sm;
+  }
+  
+  .avatar-lg {
+    @apply w-12 h-12 text-base;
+  }
+  
+  .status-dot {
+    @apply w-2.5 h-2.5 rounded-full border-2 border-chat-bg;
+  }
+  
+  .status-online {
+    @apply status-dot bg-green-500;
+  }
+  
+  .status-away {
+    @apply status-dot bg-yellow-500;
+  }
+  
+  .status-offline {
+    @apply status-dot bg-white/20;
+  }
+}
+ 
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.2);
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .animate-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  .glass {
+    @apply bg-white/5 backdrop-blur-sm border border-white/10;
+  }
+
+  /* Transparency checkerboard behind SVGs / images with no background. */
+  .img-checker {
+    background-image: repeating-conic-gradient(#5a5a5a 0% 25%, #333333 0% 50%);
+    background-size: 14px 14px;
+  }
+}

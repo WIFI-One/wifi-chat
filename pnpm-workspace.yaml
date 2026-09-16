@@ -1,0 +1,10 @@
+packages:
+  - server
+  - client
+  - shared
+
+# esbuild's postinstall installs the platform binary — required by vite/tsx.
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

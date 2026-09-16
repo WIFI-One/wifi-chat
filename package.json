@@ -1,0 +1,30 @@
+{
+  "name": "wifiroom",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client",
+    "shared"
+  ],
+  "scripts": {
+    "build": "pnpm run build:shared && pnpm run build:server && pnpm run build:client",
+    "build:shared": "pnpm --filter @wifichat/shared build",
+    "build:server": "pnpm --filter @wifichat/server build",
+    "build:client": "pnpm --filter @wifichat/client build",
+    "dev": "concurrently \"pnpm run dev:server\" \"pnpm run dev:client\"",
+    "dev:server": "pnpm --filter @wifichat/server dev",
+    "dev:client": "pnpm --filter @wifichat/client dev",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "install:all": "pnpm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
