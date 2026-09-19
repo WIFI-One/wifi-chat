@@ -13,6 +13,7 @@ import {
 import { websocketService, fileToDataUrl } from '../../services/websocket';
 import { getDmPeerId, resolveDmPeerName } from '../../utils/dm';
 import { formatTime, debounce } from '../../services/crypto';
+import { getMaxFileBytes, formatMaxSize } from '../../utils/limits';
 import { Message, Room, User, ServerPayload } from '@wifichat/shared/types';
 
 const EMOJIS = ['😀', '😂', '😍', '👍', '👏', '🙏', '🔥', '🎉', '🤔', '😢', '😮', '❤️', '✅', '❌', '👋', '🎮', '🍕', '⚽', '🌙', '☀️', '💡', '🚀'];
@@ -149,6 +150,12 @@ export const ChatArea: React.FC = () => {
   };
 
   const stageFile = (file: File) => {
+    if (file.size > getMaxFileBytes()) {
+      if (pendingFile) URL.revokeObjectURL(pendingFile.url);
+      setPendingFile(null);
+      setAttachError(`File too large (max ${formatMaxSize()}).`);
+      return;
+    }
     setAttachError(null);
     if (pendingFile) URL.revokeObjectURL(pendingFile.url);
     setPendingFile({ file, url: URL.createObjectURL(file) });
@@ -436,8 +443,8 @@ export const ChatArea: React.FC = () => {
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Attach file"
-              title="Attach file"
+              aria-label={`Attach file (max ${formatMaxSize()})`}
+              title={`Attach file (max ${formatMaxSize()})`}
               className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
             >
               <Paperclip className="w-5 h-5" />
@@ -732,8 +739,24 @@ const MessageBubble: React.FC<{
             <a href={message.content} download={message.metadata?.fileName || 'image'} target="_blank" rel="noreferrer">
               <img src={message.content} alt={message.metadata?.fileName || 'Shared image'} className="img-checker rounded-xl max-w-[280px] max-h-[280px] object-cover" />
             </a>
-          ) : isVideo ? (
-            <VideoPlayer src={message.content} className="max-w-[440px]" />
+          ) : isVideo && isPlayable ? (
+            <VideoPlayer src={message.content} mimeType={messageVideoMime(message) || undefined} fileName={message.metadata?.fileName} fileSize={message.metadata?.fileSize} className="max-w-[440px]" />
+          ) : isUnplayableVideo ? (
+            <a
+              href={message.content}
+              download={message.metadata?.fileName || 'video'}
+              className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white hover:bg-white/10 transition-colors max-w-[300px]"
+            >
+              <span className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                <Play className="w-5 h-5 ml-0.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate">{message.metadata?.fileName || 'Video'}</span>
+                <span className="block text-[11px] text-white/50">
+                  Preview not supported{typeof message.metadata?.fileSize === 'number' ? ` • ${formatBytes(message.metadata.fileSize)}` : ''} — tap to download
+                </span>
+              </span>
+            </a>
           ) : isFile ? (
             <a
               href={message.content}

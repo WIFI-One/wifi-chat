@@ -7,6 +7,7 @@ import { useRoomsStore } from '../context/stores';
 import { useMessagesStore } from '../context/stores';
 import { useUsersStore } from '../context/stores';
 import { useUIStore } from '../context/stores';
+import { getMaxFileBytes, formatMaxSize } from '../utils/limits';
 
 type MessageHandler = (payload: ServerPayload) => void;
 type ConnectionListener = (connected: boolean) => void;
@@ -381,10 +382,12 @@ class WebSocketService {
     this.reconnectTimer = window.setTimeout(() => {
       if (this.isIntentionalClose || this.sessionKicked) return;
       // Re-authenticate as the same user so identity survives a blip.
-      const username = useAuthStore.getState().user?.username;
+      const authState = useAuthStore.getState();
+      const username = authState.user?.username;
+      const token = authState.token ?? undefined;
       this.connect(this.serverBaseUrl)
         .then(() => {
-          if (username) this.auth(username);
+          if (username) this.auth(username, token);
         })
         .catch(() => {});
     }, delay);
@@ -453,8 +456,14 @@ class WebSocketService {
     this.connectionListeners.forEach((l) => l(connected));
   }
 
-  auth(username: string): void {
-    this.send({ type: 'auth', username });
+  auth(username: string, token?: string | null): void {
+    // Passing back the stored JWT lets the server resume the same userId,
+    // so a reopened tab keeps owning its old messages, DMs and rooms.
+    if (token) {
+      this.send({ type: 'auth', username, token });
+    } else {
+      this.send({ type: 'auth', username });
+    }
   }
 
   joinRoom(roomId: string): void {
@@ -470,8 +479,12 @@ class WebSocketService {
     this.send({ type: 'message', roomId, content, messageType, metadata });
   }
 
-  /** Send a file as a base64 message (no size cap). */
+  /** Send a file as a base64 message (client-side size cap, server re-checks). */
   async sendFile(roomId: string, file: File): Promise<void> {
+    const maxBytes = getMaxFileBytes();
+    if (file.size > maxBytes) {
+      throw new Error(`File too large (max ${formatMaxSize()}).`);
+    }
     const content = await fileToDataUrl(file);
     const kind: Message['type'] = file.type.startsWith('image/') ? 'image' : 'file';
     this.sendMessage(roomId, content, kind, {
@@ -524,7 +537,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-/** Read any file as a base64 data URL (no size cap). */
+/** Read any file as a base64 data URL (size already checked in sendFile). */
 export function fileToDataUrl(file: File): Promise<string> {
   return readFileAsDataUrl(file);
 }

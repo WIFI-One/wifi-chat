@@ -36,5 +36,5 @@ echo ""
 echo "Press Ctrl+C to stop all servers"
 echo ""
 
-# Run concurrently
-pnpm dev
+# Run dev servers (forwards file-size flag, e.g. ./run-dev.sh --file-size 50)
+pnpm dev -- "$@"

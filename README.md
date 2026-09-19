@@ -8,7 +8,7 @@ A private, local-network chat application that works entirely within your Wi-Fi/
 - **Automatic Discovery** — mDNS advertisement plus browser LAN scan (`/info` probe)
 - **Real-time Messaging** — WebSocket instant messaging with echo confirmation
 - **Group Chats & Direct Messages** — create/join rooms, 1-to-1 DMs
-- **Typing Indicators, Message History, File/Image Sharing** (LAN-sized, ≤2 MB)
+- **Typing Indicators, Message History, File/Image Sharing** (1 GB default, tunable via `pnpm dev --file-size 50`)
 - **Dark Theme** — pitch-black UI with Space Grotesk font
 - **Cross-Platform** — Windows, macOS, Linux, Android, iOS (any modern browser)
 - **No Cloud Dependency** — runs entirely offline on your local network
@@ -166,7 +166,7 @@ wifiroom/
 - **Rate limiting** — 30 messages/minute per connection
 - **LAN-only by default** — binds `0.0.0.0:3000` for LAN access; never exposed
   to the public internet unless you port-forward (don't)
-- **File caps** — attachments limited to 2 MB data URLs
+- **File caps** — attachments limited to 1 GB data URLs by default (tunable: `pnpm dev --file-size 50`)
 
 ## Browser Support
 

@@ -4,6 +4,7 @@ import { roomManager } from './rooms.js';
 import { clientManager } from './clients.js';
 import { ConnectedClient } from './types.js';
 import { createChildLogger } from './utils/logger.js';
+import { getMaxFileBytes, getMaxFileSizeMB, formatFileSize } from './config.js';
 
 import type { WebSocket } from 'ws';
 
@@ -85,8 +86,22 @@ export function validateMessagePayload(payload: any): { valid: boolean; error?: 
     if (!payload.content.startsWith('data:')) {
       return { valid: false, error: 'Media content must be a data URL' };
     }
-    const metaError = validateFileMetadata(payload.metadata);
+    const maxBytes = getMaxFileBytes();
+    const maxMb = getMaxFileSizeMB();
+    const metaError = validateFileMetadata(payload.metadata, maxBytes, maxMb);
     if (metaError) return { valid: false, error: metaError };
+    // Base64 inflates ~4/3 plus the data: prefix — reject before storing.
+    const maxDataUrlChars = Math.ceil(maxBytes * 1.45) + 256;
+    if (payload.content.length > maxDataUrlChars) {
+      return { valid: false, error: `File too large (max ${formatFileSize(maxMb)})` };
+    }
+    if (typeof payload.metadata?.fileSize !== 'number') {
+      // No trusted size header — fall back to the encoded length.
+      const approxBytes = Math.floor((payload.content.length * 3) / 4);
+      if (approxBytes > maxBytes) {
+        return { valid: false, error: `File too large (max ${formatFileSize(maxMb)})` };
+      }
+    }
   }
   
   const room = roomManager.getRoom(payload.roomId);
@@ -106,7 +121,7 @@ export function validateMessagePayload(payload: any): { valid: boolean; error?: 
   };
 }
 
-function validateFileMetadata(metadata: unknown): string | null {
+function validateFileMetadata(metadata: unknown, maxBytes: number = getMaxFileBytes(), maxMb: number = getMaxFileSizeMB()): string | null {
   if (metadata === undefined) return null;
   if (!metadata || typeof metadata !== 'object') return 'Invalid file metadata';
   const meta = metadata as Record<string, unknown>;
@@ -118,6 +133,9 @@ function validateFileMetadata(metadata: unknown): string | null {
   if (meta.fileSize !== undefined) {
     if (typeof meta.fileSize !== 'number' || !Number.isFinite(meta.fileSize) || meta.fileSize < 0) {
       return 'Invalid file size';
+    }
+    if (meta.fileSize > maxBytes) {
+      return `File too large (max ${formatFileSize(maxMb)})`;
     }
   }
   if (meta.mimeType !== undefined && typeof meta.mimeType !== 'string') {

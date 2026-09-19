@@ -35,17 +35,21 @@ function App() {
     if (reconnectRef.current || appReconnectTried) return;
     reconnectRef.current = true;
     appReconnectTried = true;
-    const { user } = useAuthStore.getState();
+    const { user, token } = useAuthStore.getState();
     if (!user || websocketService.connected) return;
     const lastServer = settingsStorage.getLastServer();
     const lastUsername = settingsStorage.getLastUsername() || user.username;
     if (!lastServer || !lastUsername) return;
+    // Only resume the same identity when the name matches the stored one —
+    // a different typed name must mint a fresh user, never hijack the old id.
+    const resumeToken =
+      user.username.toLowerCase() === lastUsername.toLowerCase() ? token : null;
     // Drop the stale room selection; auth_ok auto-selects General.
     useRoomsStore.getState().setActiveRoom(null);
     const signIn = async (attempt: number): Promise<void> => {
       await websocketService.connect(lastServer);
       const authed = websocketService.waitForAuthResult();
-      websocketService.auth(lastUsername);
+      websocketService.auth(lastUsername, resumeToken);
       try {
         await authed;
       } catch (err) {

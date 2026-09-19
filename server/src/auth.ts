@@ -57,9 +57,9 @@ export function validateAuthPayload(payload: any): { valid: boolean; error?: str
   return { valid: true, username: payload.username!.trim() };
 }
 
-export function createAnonymousUser(username: string, ipAddress?: string): User {
+export function createAnonymousUser(username: string, ipAddress?: string, existingId?: string): User {
   return {
-    id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    id: existingId || `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
     username,
     status: 'online',
     ipAddress,

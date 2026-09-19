@@ -12,7 +12,7 @@
     "build:shared": "pnpm --filter @wifichat/shared build",
     "build:server": "pnpm --filter @wifichat/server build",
     "build:client": "pnpm --filter @wifichat/client build",
-    "dev": "concurrently \"pnpm run dev:server\" \"pnpm run dev:client\"",
+    "dev": "node scripts/dev.mjs",
     "dev:server": "pnpm --filter @wifichat/server dev",
     "dev:client": "pnpm --filter @wifichat/client dev",
     "typecheck": "pnpm -r --if-present typecheck",

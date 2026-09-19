@@ -34,4 +34,4 @@ echo.
 echo Press Ctrl+C to stop all servers
 echo.
 
-pnpm dev
+pnpm dev -- %*

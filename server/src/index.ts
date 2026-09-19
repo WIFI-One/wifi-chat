@@ -8,16 +8,17 @@ import { DEFAULT_CONFIG, ConnectedClient } from './types.js';
 import { clientManager } from './clients.js';
 import { roomManager } from './rooms.js';
 import { discoveryService, startHostnameResponder } from './discovery.js';
-import { generateAuthToken, TokenPayload, validateAuthPayload, createAnonymousUser } from './auth.js';
+import { generateAuthToken, TokenPayload, validateAuthPayload, createAnonymousUser, verifyToken } from './auth.js';
 import { validateMessagePayload, createMessage, broadcastMessage, sendToClient, sendError, sendTypingIndicator } from './messages.js';
 import { validateRoomName, sanitizeInput } from './utils/crypto.js';
 import { createChildLogger } from './utils/logger.js';
+import { getMaxFileSizeMB, getMaxFileBytes, formatFileSize } from './config.js';
 import { getLocalIpAddresses, getPrimaryLocalIp } from './utils/network.js';
 import { ClientPayload, ServerPayload, User, Room, Message, JoinRoomPayload, MessagePayload, TypingPayload, EditMessagePayload, DeleteMessagePayload, CreateRoomPayload, RenameRoomPayload, DeleteRoomPayload, AddRoomMembersPayload } from '@wifichat/shared/types';
 
 const logger = createChildLogger('server');
 
-const config = { ...DEFAULT_CONFIG };
+const config = { ...DEFAULT_CONFIG, maxFileSizeMB: getMaxFileSizeMB() };
 
 interface ExtendedWebSocket extends WebSocket {
   clientId?: string;
@@ -69,26 +70,47 @@ function handleAuth(ws: ExtendedWebSocket, payload: ClientPayload, clientIp: str
   // (closed socket or no heartbeat for a while). Kicking a live session
   // would start an endless kick-war between two tabs/devices, each
   // reconnecting and killing the other every few seconds.
+  // Exception: the owner reopened the tab and presented their previous
+  // session token — same username + valid JWT for the same userId. That
+  // proves ownership, so drop the old socket unconditionally and resume
+  // the same identity (keeps message ownership, DMs, private rooms).
   const username = validation.username;
+  let resumeUserId: string | null = null;
+  const presentedToken = (payload as any)?.token;
+  if (typeof presentedToken === 'string' && presentedToken) {
+    const decoded = verifyToken(presentedToken);
+    if (decoded && decoded.username.toLowerCase() === username.toLowerCase()) {
+      resumeUserId = decoded.userId;
+    }
+  }
   const clash = clientManager
     .getAllClients()
     .find((c) => c.user.username.toLowerCase() === username.toLowerCase());
   if (clash) {
-    const idleMs = Date.now() - (clash.lastPing || 0);
-    const oldAlive =
-      clash.ws.readyState === 1 && idleMs < config.pingInterval + config.pingTimeout;
-    if (oldAlive) {
-      sendError(
-        ws as any,
-        'USERNAME_TAKEN',
-        `Username is already in use on this network (another tab or device is signed in as "${username}").`
-      );
-      return;
+    const isOwnerResume = resumeUserId !== null && clash.user.id === resumeUserId;
+    if (!isOwnerResume) {
+      const idleMs = Date.now() - (clash.lastPing || 0);
+      const oldAlive =
+        clash.ws.readyState === 1 && idleMs < config.pingInterval + config.pingTimeout;
+      if (oldAlive) {
+        sendError(
+          ws as any,
+          'USERNAME_TAKEN',
+          `Username is already in use on this network (another tab or device is signed in as "${username}").`
+        );
+        return;
+      }
+      logger.info('Username takeover — dropping stale session', {
+        username,
+        oldClientId: clash.id
+      });
+    } else {
+      logger.info('Identity resume — replacing previous session', {
+        username,
+        userId: resumeUserId,
+        oldClientId: clash.id
+      });
     }
-    logger.info('Username takeover — dropping stale session', {
-      username,
-      oldClientId: clash.id
-    });
     // Best effort: tell the old session why it is being disconnected so it
     // stops auto-reconnecting instead of fighting back.
     sendError(
@@ -106,7 +128,9 @@ function handleAuth(ws: ExtendedWebSocket, payload: ClientPayload, clientIp: str
   }
 
   const clientId = uuidv4();
-  const user = createAnonymousUser(validation.username, clientIp);
+  // Resume: same userId the token was minted for, so old messages stay
+  // owned by this user and DM/private-room membership still matches.
+  const user = createAnonymousUser(validation.username, clientIp, resumeUserId ?? undefined);
 
   ws.clientId = clientId;
   ws.authenticated = true;
@@ -603,7 +627,13 @@ function handleDisconnect(ws: ExtendedWebSocket): void {
   const client = clientManager.removeClient(ws.clientId);
   if (client) {
     for (const roomId of client.rooms) {
-      roomManager.removeMember(roomId, client.user.id);
+      // Private rooms and DMs keep their member list so a reconnect with
+      // the same identity (same userId via resume token) lands back in
+      // them. Public rooms drop the member — anyone can rejoin freely.
+      const room = roomManager.getRoom(roomId);
+      if (!room?.isPrivate) {
+        roomManager.removeMember(roomId, client.user.id);
+      }
       broadcastUserLeft(client.user.id, roomId);
     }
     
@@ -623,7 +653,10 @@ function handlePong(ws: ExtendedWebSocket): void {
 }
 
 function setupWebSocketServer(server: http.Server): WebSocketServer {
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  // Allow one max-size file per frame plus JSON overhead; larger frames are
+  // rejected by `ws` before they can exhaust memory.
+  const maxPayload = Math.ceil(getMaxFileBytes() * 1.6) + 1024 * 1024;
+  const wss = new WebSocketServer({ server, path: '/ws', maxPayload });
   
   wss.on('connection', (ws: ExtendedWebSocket, req) => {
     const clientIp = req.socket.remoteAddress || 'unknown';
@@ -871,6 +904,7 @@ async function startServer(): Promise<void> {
       httpPort: config.httpPort,
       wsPort: config.wsPort,
       host: config.host,
+      maxFileSizeMB: config.maxFileSizeMB,
       localIps
     });
     
@@ -885,6 +919,7 @@ async function startServer(): Promise<void> {
       console.log(`║    http://${ip}:${config.httpPort}                                      ║`);
     }
     console.log(`║  Short name:  http://wifichat.local:${config.httpPort} (same Wi-Fi)        ║`);
+    console.log(`║  Max file:   ${formatFileSize(config.maxFileSizeMB)} (pnpm dev --file-size <MB>)          ║`);
     const primaryIp = getPrimaryLocalIp();
     if (primaryIp) startHostnameResponder(primaryIp);
     if (clientDir) console.log('║  Serving client UI from client/dist                          ║');

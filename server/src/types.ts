@@ -19,6 +19,7 @@ export interface ServerConfig {
   rateLimitWindow: number;
   pingInterval: number;
   pingTimeout: number;
+  maxFileSizeMB: number;
 }
 
 export const DEFAULT_CONFIG: ServerConfig = {
@@ -29,7 +30,8 @@ export const DEFAULT_CONFIG: ServerConfig = {
   maxMessageRate: 30,
   rateLimitWindow: 60000,
   pingInterval: 25000,
-  pingTimeout: 10000
+  pingTimeout: 10000,
+  maxFileSizeMB: 1024
 };
 
 export type { User, Message, Room, MessageType, UserStatus };

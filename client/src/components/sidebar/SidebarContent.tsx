@@ -158,6 +158,13 @@ export const SidebarContent: React.FC = () => {
       setError('Enter a username and pick a server (or type its address).');
       return;
     }
+    // Resume the stored identity only when rejoining with the same name —
+    // otherwise the server mints a fresh user (prevents id hijacking).
+    const stored = useAuthStore.getState();
+    const resumeToken =
+      stored.user?.username.toLowerCase() === finalName.toLowerCase()
+        ? stored.token
+        : null;
 
     setIsConnecting(true);
     setError(null);
@@ -174,13 +181,15 @@ export const SidebarContent: React.FC = () => {
         return;
       }
       const authed = websocketService.waitForAuthResult();
-      websocketService.auth(finalName);
+      websocketService.auth(finalName, resumeToken);
       try {
         await authed;
       } catch (err) {
         // Reopened tab right after closing the old one: the server may
         // still see the previous session as alive. Wait for it to time out
         // and try once more before surfacing the error.
+        // (With a resume token the server replaces the stale session
+        // immediately, so this path is mostly for token-less joins.)
         const taken = err instanceof Error && /already in use/i.test(err.message);
         if (!taken || attempt > 1) throw err;
         await new Promise((r) => setTimeout(r, 4000));
@@ -194,7 +203,7 @@ export const SidebarContent: React.FC = () => {
           return;
         }
         const retry = websocketService.waitForAuthResult();
-        websocketService.auth(finalName);
+        websocketService.auth(finalName, resumeToken);
         await retry;
       }
       settingsStorage.setLastServer(finalUrl);
