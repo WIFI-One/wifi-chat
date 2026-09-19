@@ -460,40 +460,79 @@ export const ChatArea: React.FC = () => {
   );
 };
 
-const VideoPlayer: React.FC<{ src: string; className?: string }> = ({ src, className = '' }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [started, setStarted] = useState(false);
-
-  const play = () => {
-    videoRef.current?.play().catch(() => {});
-  };
-
+const VideoPlayer: React.FC<{ src: string; mimeType?: string; fileName?: string; fileSize?: number; className?: string }> = ({ src, mimeType, fileName, fileSize, className = '' }) => {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <a
+        href={src}
+        download={fileName || 'video'}
+        className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white hover:bg-white/10 transition-colors max-w-[300px]"
+      >
+        <span className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+          <Play className="w-5 h-5 ml-0.5" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate">{fileName || 'Video'}</span>
+          <span className="block text-[11px] text-white/50">
+            Preview not supported{typeof fileSize === 'number' ? ` • ${formatBytes(fileSize)}` : ''} — tap to download
+          </span>
+        </span>
+      </a>
+    );
+  }
   return (
     <div className={`relative w-fit min-w-[280px] group ${className}`}>
       <video
-        ref={videoRef}
-        src={src}
-        controls={started}
+        controls
         preload="metadata"
         playsInline
-        onPlay={() => setStarted(true)}
-        onEnded={() => setStarted(false)}
-        onPause={() => setStarted(false)}
+        onError={() => setFailed(true)}
         className="w-full min-w-[280px] max-h-[440px] rounded-xl bg-black object-contain"
-      />
-      {!started && (
-        <button
-          onClick={play}
-          aria-label="Play video"
-          title="Play"
-          className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-white text-black flex items-center justify-center hover:bg-neutral-300 hover:scale-105 transition-all shadow-lg"
-        >
-          <Play className="w-7 h-7 ml-0.5 fill-current" />
-        </button>
-      )}
+      >
+        <source src={src} type={mimeType || undefined} />
+      </video>
     </div>
   );
 };
+
+// Mime types browsers can reliably play inline in a <video> tag.
+// Everything else video/* (quicktime/mov, avi, mkv, ...) shows only a
+// black box / audio bar in some browsers, so render a download card instead.
+const PLAYABLE_VIDEO_MIMES = new Set(['video/mp4', 'video/webm', 'video/ogg']);
+const VIDEO_EXTENSIONS = /\.(mp4|webm|ogv|ogg|m4v|mov|avi|mkv)$/i;
+
+function dataUrlMime(content: string): string {
+  const m = /^data:([^;,]+)/.exec(content);
+  return (m?.[1] || '').split(';')[0].toLowerCase();
+}
+
+function messageVideoMime(message: Message): string {
+  const meta = (message.metadata?.mimeType || '').split(';')[0].toLowerCase();
+  if (meta.startsWith('video/')) return meta;
+  const dataMime = dataUrlMime(message.content);
+  if (dataMime.startsWith('video/')) return dataMime;
+  return meta || dataMime;
+}
+
+function isVideoMessage(message: Message): boolean {
+  if (message.metadata?.mimeType?.toLowerCase().startsWith('video/')) return true;
+  if (message.content.startsWith('data:video/')) return true;
+  if (message.content.startsWith('data:') && VIDEO_EXTENSIONS.test(message.metadata?.fileName || '')) return true;
+  return false;
+}
+
+function isPlayableVideo(message: Message): boolean {
+  if (!isVideoMessage(message)) return false;
+  const mime = messageVideoMime(message);
+  // Empty/unknown mime (e.g. octet-stream from a typeless file) — trust the
+  // extension: mp4/webm/ogg play inline, mov/avi/mkv do not.
+  if (!mime || mime === 'application/octet-stream' || mime === 'binary/octet-stream') {
+    const name = message.metadata?.fileName || '';
+    return /\.(mp4|webm|ogv|ogg|m4v)$/i.test(name);
+  }
+  return PLAYABLE_VIDEO_MIMES.has(mime);
+}
 
 const MessageBubble: React.FC<{
   message: Message;
@@ -512,10 +551,10 @@ const MessageBubble: React.FC<{
   const sender = users.find((u: User) => u.id === message.senderId);
   const senderName = sender?.username || message.senderName;
   const isImage = message.type === 'image' || (message.content.startsWith('data:image/'));
-  const isVideo =
-    message.content.startsWith('data:video/') ||
-    (message.metadata?.mimeType?.startsWith('video/') ?? false);
-  const isFile = message.type === 'file' || (message.content.startsWith('data:') && !isImage && !isVideo);
+  const isVideo = isVideoMessage(message);
+  const isPlayable = isPlayableVideo(message);
+  const isFile = !isImage && !isVideo && (message.type === 'file' || message.content.startsWith('data:'));
+  const isUnplayableVideo = isVideo && !isPlayable;
   const isMedia = isImage || isVideo || isFile;
   const isTextMsg = !isMedia;
   // Only delivered messages can be changed (no pending optimistic ones).
@@ -653,12 +692,12 @@ const MessageBubble: React.FC<{
                 {isImage && (
                   <img src={message.content} alt={message.metadata?.fileName || 'Shared image'} className="img-checker rounded-xl max-w-[220px] max-h-[200px] object-cover" />
                 )}
-                {isVideo && (
-                  <VideoPlayer src={message.content} className="max-w-[220px]" />
+                {isVideo && isPlayable && (
+                  <VideoPlayer src={message.content} mimeType={messageVideoMime(message) || undefined} fileName={message.metadata?.fileName} fileSize={message.metadata?.fileSize} className="max-w-[300px]" />
                 )}
-                {isFile && !isVideo && (
+                {(isUnplayableVideo || isFile) && (
                   <div className="flex items-center gap-2 text-sm text-white">
-                    <Download className="w-4 h-4" />
+                    {isUnplayableVideo ? <Play className="w-4 h-4" /> : <Download className="w-4 h-4" />}
                     {message.metadata?.fileName || 'Download file'}
                   </div>
                 )}
@@ -694,7 +733,7 @@ const MessageBubble: React.FC<{
               <img src={message.content} alt={message.metadata?.fileName || 'Shared image'} className="img-checker rounded-xl max-w-[280px] max-h-[280px] object-cover" />
             </a>
           ) : isVideo ? (
-            <VideoPlayer src={message.content} className="max-w-[360px]" />
+            <VideoPlayer src={message.content} className="max-w-[440px]" />
           ) : isFile ? (
             <a
               href={message.content}

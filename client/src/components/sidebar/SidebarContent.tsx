@@ -814,7 +814,7 @@ const RoomItem: React.FC<{ room: Room; isActive: boolean }> = ({ room, isActive 
         </div>
         <p className="text-sm text-white/50 truncate">
           {previewMediaKind && room.lastMessage ? (
-            <i>Sent {previewMediaKind}</i>
+            <>{room.lastMessage.senderName}: <i>Sent {previewMediaKind}</i></>
           ) : (
             preview
           )}
