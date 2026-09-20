@@ -14,13 +14,15 @@ wifiroom/
 ├── tsconfig.json           # root base config (excludes node_modules, dist)
 ├── run-dev.sh / run-dev.bat
 ├── build.sh / build.bat
+├── scripts/dev.mjs        # dev launcher: parses --file-size, spawns server+client
 ├── server/                 # @wifichat/server, ESM ("type": "module")
 │   ├── src/
 │   │   ├── index.ts        # entry: HTTP + WS (/ws) + /info + static client/dist
 │   │   ├── auth.ts         # JWT session tokens, validateAuthPayload
 │   │   ├── clients.ts      # connection registry, heartbeat, rate limiting
 │   │   ├── rooms.ts        # rooms + DM rooms (dm_<userId>), history
-│   │   ├── messages.ts     # validation, broadcast, typing
+│   │   ├── messages.ts     # validation (incl. file-size cap), broadcast, typing
+│   │   ├── config.ts       # max file size: CLI --file-size / MAX_FILE_SIZE_MB env
 │   │   ├── discovery.ts    # mDNS advertisement + wifichat.local responder
 │   │   ├── types.ts        # server config/types (DEFAULT_CONFIG)
 │   │   ├── mdns.d.ts       # untyped mDNS shim
@@ -30,7 +32,7 @@ wifiroom/
 │   ├── vite.config.ts      # alias @ -> src, @shared -> ../shared; allowedHosts wifichat.local
 │   ├── tailwind.config.js / postcss.config.js
 │   ├── index.html
-│   ├── public/             # favicon.svg, wifi.svg (no fonts/ dir)
+│   ├── public/             # favicon.svg (white bubble + wifi glyph), wifi.svg (no fonts/ dir)
 │   └── src/
 │       ├── main.tsx / App.tsx / index.css
 │       ├── components/
@@ -42,7 +44,7 @@ wifiroom/
 │       ├── context/stores.ts + types.ts   # zustand stores (persisted, safeStorage)
 │       ├── services/       # websocket.ts, discovery.ts (WebRTC /24 /info scan), storage.ts, crypto.ts, notifications.ts
 │       ├── hooks/useMediaQuery.ts
-│       ├── utils/dm.ts + messagePreview.ts
+│   ├── utils/dm.ts + messagePreview.ts + limits.ts  # limits: VITE_MAX_FILE_SIZE_MB
 │       ├── types/index.ts
 │       └── styles/main.css
 └── shared/                 # @wifichat/shared, protocol source of truth
@@ -70,9 +72,9 @@ pnpm run build:shared   # must run first: server imports from shared/dist
 pnpm run build:server
 pnpm run build:client
 
-pnpm run dev            # server + client (concurrently)
-pnpm run dev:server     # tsx watch server/src/index.ts
-pnpm run dev:client     # vite :5173
+pnpm dev --file-size 50  # server + client via scripts/dev.mjs (default 1 GB, max 4 GB)
+pnpm run dev:server     # tsx watch server/src/index.ts (also accepts --file-size)
+pnpm run dev:client     # vite :5173 (limit via VITE_MAX_FILE_SIZE_MB env)
 
 pnpm run typecheck      # pnpm -r --if-present typecheck
 pnpm run lint           # pnpm -r --if-present lint
@@ -105,7 +107,11 @@ Server -> Client: auth_ok {userId, token, user, rooms, users}, user_joined,
   error {code, message}
 ```
 
-Limits: text <= 4000 chars, attachments <= 2 MB data URLs, ~30 msgs/min/conn.
+Limits: text <= 4000 chars, attachments <= 1 GB data URLs by default
+(tunable: `pnpm dev --file-size {MB}`, max 4 GB; server re-validates and scales
+WS maxPayload, client pre-checks in sendFile/stageFile). Only mp4/webm/ogg play
+inline — mov/avi/mkv and other unplayable video render as download cards.
+~30 msgs/min/conn.
 DMs are on-demand private rooms `dm_<otherUserId>`. Same-username takeover
 only kicks dead sessions (prevents kick-wars).
 

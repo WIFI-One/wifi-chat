@@ -5,9 +5,9 @@ interface LogoProps {
   className?: string;
 }
 
-/** WifiChat logo: a message bubble with a wifi symbol inside. */
+/** WifiChat logo: a circular message bubble with a wifi symbol inside. */
 export const Logo: React.FC<LogoProps> = ({ size = 'md', className = '' }) => {
-  const box = size === 'sm' ? 'w-8 h-8 rounded-lg' : 'w-10 h-10 rounded-xl';
+  const box = size === 'sm' ? 'w-8 h-8 rounded-full' : 'w-10 h-10 rounded-full';
   const icon = size === 'sm' ? 'w-5 h-5' : 'w-6 h-6';
   return (
     <div className={`${box} bg-white flex items-center justify-center flex-shrink-0 ${className}`}>
@@ -21,9 +21,10 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', className = '' }) => {
         strokeLinejoin="round"
         aria-hidden="true"
       >
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+        <circle cx="12" cy="10.5" r="7.5" />
+        <path d="M8.2 16.8 6 20.5l3.9-1.9" />
         {/* Wifi icon geometry verbatim from wifi-svgrepo-com.svg (SVG Repo, CC0) */}
-        <svg x="7" y="8" width="10" height="10" viewBox="0 0 48 48" fill="none">
+        <svg x="7.5" y="6.5" width="9" height="9" viewBox="0 0 48 48" fill="none">
           <g fill="none" stroke="currentColor" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round">
             <path d="M30.7652,28.6157A10.5155,10.5155,0,0,0,17.33,28.5793v.0364"/>
             <circle cx="24" cy="33" r="4.5" fill="currentColor" stroke="none"/>

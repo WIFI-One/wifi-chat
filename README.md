@@ -39,6 +39,22 @@ This starts:
 - **WebSocket** on `ws://localhost:3000/ws`
 - **Client dev server** on `http://localhost:5173` (hot reload)
 
+### File size limit
+
+Attachments default to **1 GB** max. Change it for a dev session:
+
+```bash
+pnpm dev --file-size 50    # 50 MB instead (max 4 GB)
+```
+
+(`MAX_FILE_SIZE_MB=50 pnpm dev` works too.) The client checks before sending
+and the server re-validates — both sides use the same value in dev. For
+production, set it on each side separately: `MAX_FILE_SIZE_MB=100 pnpm
+--filter @wifichat/server start` for the server, and
+`VITE_MAX_FILE_SIZE_MB=100 pnpm run build:client` for the UI (baked in at
+build time). Only `mp4`/`webm`/`ogg` video plays inline; other formats
+(`mov`, `avi`, `mkv`, …) arrive as download cards.
+
 ### Production Build
 
 ```bash
@@ -106,21 +122,23 @@ wifiroom/
 ├── server/          # Node.js WebSocket server + mDNS discovery
 │   ├── src/
 │   │   ├── index.ts     # Entry point, HTTP + WS server, static UI
-│   │   ├── server.ts    # (removed — merged into index)
+│   │   ├── config.ts    # Max file size (CLI --file-size / MAX_FILE_SIZE_MB)
 │   │   ├── discovery.ts # mDNS/Bonjour advertisement + browsing
 │   │   ├── rooms.ts     # Room + DM management, history
 │   │   ├── clients.ts   # Connection registry, rate limiting
-│   │   ├── messages.ts  # Validation, broadcast, typing
+│   │   ├── messages.ts  # Validation (incl. file-size cap), broadcast, typing
 │   │   ├── auth.ts      # Temporary JWT session tokens
 │   │   └── utils/       # logger, crypto, network
 ├── client/          # React + TypeScript frontend
 │   ├── src/
 │   │   ├── components/  # chat, sidebar, infoPanel, layout, ui
 │   │   ├── context/     # zustand stores
-│   │   ├── services/    # websocket, discovery (LAN scan), storage
+│   │   ├── services/    # websocket, discovery (LAN scan), storage, crypto, notifications
+│   │   ├── utils/       # dm, messagePreview, limits (VITE_MAX_FILE_SIZE_MB)
 │   │   └── hooks/       # useMediaQuery
 ├── shared/          # Shared TypeScript protocol types
 │   └── src/types.ts
+├── scripts/dev.mjs  # Dev launcher (parses --file-size, spawns server+client)
 ├── run-dev.sh/.bat  # Development startup scripts
 └── build.sh/.bat    # Production build scripts
 ```
@@ -193,6 +211,14 @@ wifiroom/
 - Check the sidebar shows "online" (connected) status
 - Verify both devices are in the same room
 - Check the browser console for errors
+
+### "File too large"
+
+- The attachment exceeds the server/client limit (default 1 GB) — restart dev
+  with a higher cap, e.g. `pnpm dev --file-size 2000`
+- Video that arrives as a download card instead of a player is an unsupported
+  codec (`mov`/`avi`/`mkv`) — download it and play locally, or re-encode to
+  `mp4`/`webm`
 
 ## License
 
