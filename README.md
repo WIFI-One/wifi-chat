@@ -1,5 +1,5 @@
 # WifiChat
-
+Your Network. Your Chat.
 A private, local-network chat application that works entirely within your Wi-Fi/LAN. No internet required. No cloud servers. No accounts.
 
 ## Features
