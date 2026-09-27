@@ -55,4 +55,7 @@ export const settingsStorage = {
   
   getLastUsername: () => storage.get<string>('lastUsername', ''),
   setLastUsername: (username: string) => storage.set('lastUsername', username),
+
+  getHasSeenSplash: () => storage.get<boolean>('hasSeenSplash', false),
+  setHasSeenSplash: (seen: boolean) => storage.set('hasSeenSplash', seen),
 };

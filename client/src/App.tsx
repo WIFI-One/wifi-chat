@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { InfoPanel } from './components/layout/InfoPanel';
 import { SidebarContent } from './components/sidebar/SidebarContent';
 import { ChatArea } from './components/chat/ChatArea';
 import { InfoPanelContent } from './components/infoPanel/InfoPanelContent';
+import { LoadingScreen } from './components/LoadingScreen';
 import { useAuthStore, useRoomsStore, useUIStore } from './context/stores';
 import { useIsMobile } from './hooks/useMediaQuery';
 import { websocketService } from './services/websocket';
@@ -17,6 +18,17 @@ function App() {
   const { activeRoomId } = useRoomsStore();
   const isMobile = useIsMobile();
   const reconnectRef = useRef(false);
+  // Splash is only shown on the first-ever visit; later launches go straight
+  // to the chat screen.
+  const [booting, setBooting] = useState(() => !settingsStorage.getHasSeenSplash());
+  const [splashVisible, setSplashVisible] = useState(true);
+
+  const handleSplashDone = useCallback(() => {
+    settingsStorage.setHasSeenSplash(true);
+    setSplashVisible(false);
+    // Match the splash's 700ms fade, then reveal the chat screen.
+    setTimeout(() => setBooting(false), 750);
+  }, []);
 
   useEffect(() => {
     // Default panel visibility follows screen size.
@@ -80,6 +92,7 @@ function App() {
 
   return (
     <div className="h-screen w-full flex bg-chat-bg text-white overflow-hidden">
+      {booting && <LoadingScreen visible={splashVisible} onDone={handleSplashDone} />}
       <Sidebar isOpen={sidebarOpen} onClose={() => useUIStore.getState().setSidebarOpen(false)}>
         <SidebarContent />
       </Sidebar>
